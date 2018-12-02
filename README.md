@@ -8,9 +8,9 @@ Data entrega: 10/12/2018
 
 Estat pràctica:
 
-Exercici 1 :  TODO
+Exercici 1 :  2 TEST FAIL
 
-Exercici 2 :  TODO
+Exercici 2 :  COMPLETED
 
 Exercici 3 :  TODO
 
