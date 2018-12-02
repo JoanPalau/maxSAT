@@ -94,7 +94,50 @@ class Graph(object):
             means all posible solutions.
         :return: A list of solutions, each solution is a list of nodes.
         """
-        raise NotImplementedError("Your Code Here")
+
+        formula = wcnf.WCNFFormula()
+        n_vars = [formula.new_var() for _ in range(self.n_nodes)]
+
+        # soft: including a vertex in the dominating set has a cost of 1
+        for i in range(self.n_nodes):
+            formula.add_clause([-n_vars[i]], 1)  # clause weight = 1
+
+        # hard: each vertex needs to either be in the DSet
+        # or have at least one of their neighbours in the DSet
+
+        prova = {}
+
+        for n1, n2 in self.edges:
+            v1, v2 = n_vars[n1 - 1], n_vars[n2 - 1]
+
+            #We create a dictionary that for each node
+            #has a list of him and his neighbours
+            if v1 not in prova:
+                prova[v1] = [v1, v2]
+            else:
+                anterior = prova.get(v1)
+                anterior.append(v2)
+                prova[v1] = anterior
+
+            if v2 not in prova:
+                prova[v2] = [v1, v2]
+            else:
+                anterior = prova.get(v2)
+                anterior.append(v1)
+                prova[v2] = anterior
+
+            for key in prova:
+                lits = prova[key]
+                #At least one of the node and their neighbours has to be in the DSet
+                formula.add_at_least_one(lits) #[:-1]
+
+            #formula.add_clause([-v1, -v2], wcnf.TOP_WEIGHT)
+            #formula.add_exactly_one([v1, v2])
+            #formula.add_clause([v1, v2], wcnf.TOP_WEIGHT)
+            #formula.add_at_least_one(n_vars)
+            #formula.add_at_most_one([v1, v2])
+
+        return compute_all_solutions(self, formula, solver)
 
     def max_independent_set(self, solver, n_solutions):
         """Computes the maximum independent set of the graph.
@@ -104,7 +147,20 @@ class Graph(object):
             means all posible solutions.
         :return: A list of solutions, each solution is a list of nodes.
         """
-        raise NotImplementedError("Your Code Here")
+        formula = wcnf.WCNFFormula()
+        n_vars = [formula.new_var() for _ in range(self.n_nodes)]
+
+        # soft: not including a vertex in the independent set has a cost of 1
+        for i in range(self.n_nodes):
+            formula.add_clause([n_vars[i]], 1)  # clause weight = 1
+
+        # hard: each vertex needs if in the independent set
+        # not have any of their neighbours in the independent Set
+        for n1, n2 in self.edges:
+            v1, v2 = n_vars[n1 - 1], n_vars[n2 - 1]
+            formula.add_clause([-v1, -v2], wcnf.TOP_WEIGHT)
+
+        return compute_all_solutions(self, formula, solver)
 
     def min_graph_coloring(self, solver, n_solutions):
         """Computes the sets of nodes that can be painted using the
@@ -136,8 +192,8 @@ def main(argv=None):
     mis_all = graph.max_independent_set(solver, args.n_solutions)
     assert all(len(mis_all[0]) == len(x) for x in mis_all)
 
-    mgc_all = graph.min_graph_coloring(solver, args.n_solutions)
-    assert all(len(mgc_all[0]) == len(x) for x in mgc_all)
+    #mgc_all = graph.min_graph_coloring(solver, args.n_solutions)
+    #assert all(len(mgc_all[0]) == len(x) for x in mgc_all)
 
     print("INDEPENDENT DOMINATION NUMBER", len(mds_all[0]))
     for mds in mds_all:
@@ -147,10 +203,10 @@ def main(argv=None):
     for mis in mis_all:
         print("MIS", " ".join(map(str, mis)))
 
-    print("CHROMATIC INDEX", len(mgc_all[0]))
-    for mgc in mgc_all:
-        nodes = (" ".join(map(str, x)) for x in mgc)
-        print("GC", " | ".join(nodes))
+    #print("CHROMATIC INDEX", len(mgc_all[0]))
+    #for mgc in mgc_all:
+        #nodes = (" ".join(map(str, x)) for x in mgc)
+        #print("GC", " | ".join(nodes))
 
 
 # Utilities
@@ -171,9 +227,39 @@ def parse_command_line_arguments(argv=None):
 
     return parser.parse_args(args=argv)
 
+def compute_all_solutions(self, formula, solver):
+    all_solutions = []
+    opt, model = solver.solve(formula)
+    if opt >= 0:
+        solution = [x for x in range(1, self.n_nodes + 1) if model[x - 1] > 0]
+        all_solutions.append(solution)
+
+    return all_solutions
 
 # Entry point
 ###############################################################################
 
 if __name__ == "__main__":
     sys.exit(main())
+
+# Intents fallits
+######################################
+'''
+            prova = {}
+            if v1 not in prova:
+                prova[v1] = [-v1, -v2]
+            else:
+                anterior = prova.get(v1)
+                anterior.append(-v2)
+                prova[v1] = anterior
+
+            if v2 not in prova:
+                prova[v2] = [-v1, -v2]
+            else:
+                anterior = prova.get(v2)
+                anterior.append(-v1)
+                prova[v2] = anterior
+
+            for key in prova:
+                lits = prova[key]
+                formula.add_clause(lits[:-1], wcnf.TOP_WEIGHT)'''
