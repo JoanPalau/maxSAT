@@ -77,7 +77,7 @@ class Graph(object):
             v1, v2 = n_vars[n1-1], n_vars[n2-1]
             formula.add_clause([v1, v2], wcnf.TOP_WEIGHT)
 
-        return compute_all_solutions(self, formula, solver)
+        return compute_all_solutions(self, formula, solver, n_solutions)
 
     def min_dominating_set(self, solver, n_solutions):
         """Computes the minimum dominating set of the graph.
@@ -117,7 +117,7 @@ class Graph(object):
                 literals = neighbours[key]
                 formula.add_at_least_one(literals)  # [:-1]
 
-        return compute_all_solutions(self, formula, solver)
+        return compute_all_solutions(self, formula, solver, n_solutions)
 
     def max_independent_set(self, solver, n_solutions):
         """Computes the maximum independent set of the graph.
@@ -140,7 +140,7 @@ class Graph(object):
             v1, v2 = n_vars[n1 - 1], n_vars[n2 - 1]
             formula.add_clause([-v1, -v2], wcnf.TOP_WEIGHT)
 
-        return compute_all_solutions(self, formula, solver)
+        return compute_all_solutions(self, formula, solver, n_solutions)
 
     def min_graph_coloring(self, solver, n_solutions):
         """Computes the sets of nodes that can be painted using the
@@ -154,11 +154,36 @@ class Graph(object):
             nodes, where all the nodes in the same list are painted
             using the same color.
         """
-        raise NotImplementedError("Your Code Here")
+        formula = wcnf.WCNFFormula()
+
+        nodes = [i+1 for i in range(self.n_nodes)]
+
+        neighbours = {}
+
+        for i in range(self.n_nodes):
+            neighbours[nodes[i-1]] = [nodes[i-1]]
+
+        for n1, n2 in self.edges:
+            v1, v2 = nodes[n1 - 1], nodes[n2 - 1]
+
+            neighbours = add_neighbour(self, neighbours, v1, v2)
+
+            neighbours = add_neighbour(self, neighbours, v2, v1)
+
+        max_connectivity = 0
+
+        for node in neighbours:
+            max_connectivity = max(max_connectivity, len(neighbours.get(node)))
+
+        print(max_connectivity)
+        print(neighbours)
+        return print(nodes)
+
 
 
 # Program main
 ###############################################################################
+
 
 def main(argv=None):
     args = parse_command_line_arguments(argv)
@@ -207,17 +232,35 @@ def parse_command_line_arguments(argv=None):
 
     return parser.parse_args(args=argv)
 
-def compute_all_solutions(self, formula, solver):
-    # this is just an example, only one solution is computed
-    all_solutions = []
-    opt, model = solver.solve(formula)
-    # maxOpt = opt
 
-    if opt >= 0:
+def compute_all_solutions(self, formula, solver, n_solutions):
+    # this is just an example, only one solution is computed
+    i = 0
+    do = True
+    all_solutions = []
+
+    max_opt, model = solver.solve(formula)
+    if max_opt >= 0:
         solution = [x for x in range(1, self.n_nodes + 1) if model[x - 1] > 0]
         all_solutions.append(solution)
+        new_clause = negate(solution)
+        formula.add_clause(new_clause, wcnf.TOP_WEIGHT)
+        i += 1
+    else:
+        do = False
 
+    while (i < n_solutions or n_solutions == 0 or n_solutions == -1) and do:
+        opt, model = solver.solve(formula)
+        if opt == max_opt:
+            solution = [x for x in range(1, self.n_nodes + 1) if model[x - 1] > 0]
+            all_solutions.append(solution)
+            new_clause = negate(solution)
+            formula.add_clause(new_clause, wcnf.TOP_WEIGHT)
+            i += 1
+        else:
+            do = False
     return all_solutions
+
 
 def negate(formula):
     """Negates a given formula
@@ -228,7 +271,9 @@ def negate(formula):
     res = []
     for i in range(len(formula)):
         res.append(-formula[i])
+
     return res
+
 
 def add_neighbour(self, neighbours, node, new):
     """Adds a neighbour to the node list of neighbours + himself
@@ -245,6 +290,7 @@ def add_neighbour(self, neighbours, node, new):
 
 # Entry point
 ###############################################################################
+
 
 if __name__ == "__main__":
     sys.exit(main())
