@@ -8,12 +8,22 @@ Data entrega: 10/12/2018
 
 Estat pràctica:
 
-Exercici 1 :  2 TEST FAIL
+Exercici 1 :  COMPLETED
 
 Exercici 2 :  COMPLETED
 
-Exercici 3 :  TODO
+Exercici 3 :  IN PROGRESS
 
-Ampliació :   TODO
+Ampliació :   IN PROGRESS
+    
+    - 1-3 TODO
+    - Multiple answers IN PROGRESS
 
-Informe :     TODO
+Informe :     IN PROGRESS
+  
+    - Redacció document           TODO
+    - Modelització matemàtica EX1 DONE
+    - Modelització matemàtica EX2 IN PROGRESS
+    - Modelització matemàtica EX3 TODO
+    - Provar diferents satSolvers TODO
+    - Generador grafs             TODO
