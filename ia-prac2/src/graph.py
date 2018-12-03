@@ -77,14 +77,7 @@ class Graph(object):
             v1, v2 = n_vars[n1-1], n_vars[n2-1]
             formula.add_clause([v1, v2], wcnf.TOP_WEIGHT)
 
-        # this is just an example, only one solution is computed
-        all_solutions = []
-        opt, model = solver.solve(formula)
-        if opt >= 0:
-            solution = [x for x in range(1, self.n_nodes + 1) if model[x-1] > 0]
-            all_solutions.append(solution)
-
-        return all_solutions
+        return compute_all_solutions(self, formula, solver)
 
     def min_dominating_set(self, solver, n_solutions):
         """Computes the minimum dominating set of the graph.
@@ -102,40 +95,27 @@ class Graph(object):
         for i in range(self.n_nodes):
             formula.add_clause([-n_vars[i]], 1)  # clause weight = 1
 
-        # hard: each vertex needs to either be in the DSet
-        # or have at least one of their neighbours in the DSet
+        neighbours = {}
 
-        prova = {}
+        # We create a dictionary that for each node
+        # has a list of him and his neighbours
+
+        for i in range(self.n_nodes):
+            neighbours[n_vars[i-1]] = [n_vars[i-1]]
 
         for n1, n2 in self.edges:
             v1, v2 = n_vars[n1 - 1], n_vars[n2 - 1]
 
-            #We create a dictionary that for each node
-            #has a list of him and his neighbours
-            if v1 not in prova:
-                prova[v1] = [v1, v2]
-            else:
-                anterior = prova.get(v1)
-                anterior.append(v2)
-                prova[v1] = anterior
+            neighbours = add_neighbour(self, neighbours, v1, v2)
 
-            if v2 not in prova:
-                prova[v2] = [v1, v2]
-            else:
-                anterior = prova.get(v2)
-                anterior.append(v1)
-                prova[v2] = anterior
+            neighbours = add_neighbour(self, neighbours, v2, v1)
 
-            for key in prova:
-                lits = prova[key]
-                #At least one of the node and their neighbours has to be in the DSet
-                formula.add_at_least_one(lits) #[:-1]
+            # hard: each vertex needs to either be in the DSet
+            # or have at least one of their neighbours in the DSet
 
-            #formula.add_clause([-v1, -v2], wcnf.TOP_WEIGHT)
-            #formula.add_exactly_one([v1, v2])
-            #formula.add_clause([v1, v2], wcnf.TOP_WEIGHT)
-            #formula.add_at_least_one(n_vars)
-            #formula.add_at_most_one([v1, v2])
+            for key in neighbours:
+                literals = neighbours[key]
+                formula.add_at_least_one(literals)  # [:-1]
 
         return compute_all_solutions(self, formula, solver)
 
@@ -228,13 +208,40 @@ def parse_command_line_arguments(argv=None):
     return parser.parse_args(args=argv)
 
 def compute_all_solutions(self, formula, solver):
+    # this is just an example, only one solution is computed
     all_solutions = []
     opt, model = solver.solve(formula)
+    # maxOpt = opt
+
     if opt >= 0:
         solution = [x for x in range(1, self.n_nodes + 1) if model[x - 1] > 0]
         all_solutions.append(solution)
 
     return all_solutions
+
+def negate(formula):
+    """Negates a given formula
+
+    :param formula: list of literals
+    :return: the list of literals negated
+    """
+    res = []
+    for i in range(len(formula)):
+        res.append(-formula[i])
+    return res
+
+def add_neighbour(self, neighbours, node, new):
+    """Adds a neighbour to the node list of neighbours + himself
+
+    :param neighbours: dictionary of node, neighbours
+    :param node: the key
+    :param new: the neighbour to add
+    :return: the updated dictionary
+    """
+    anterior = neighbours.get(node)
+    anterior.append(new)
+    neighbours[node] = anterior
+    return neighbours
 
 # Entry point
 ###############################################################################
@@ -244,22 +251,24 @@ if __name__ == "__main__":
 
 # Intents fallits
 ######################################
-'''
-            prova = {}
-            if v1 not in prova:
-                prova[v1] = [-v1, -v2]
-            else:
-                anterior = prova.get(v1)
-                anterior.append(-v2)
-                prova[v1] = anterior
 
-            if v2 not in prova:
-                prova[v2] = [-v1, -v2]
-            else:
-                anterior = prova.get(v2)
-                anterior.append(-v1)
-                prova[v2] = anterior
+    '''
+    if n_solutions == 0 or n_solutions == -1:
+        stop = False
+    else:
+        stop = True
 
-            for key in prova:
-                lits = prova[key]
-                formula.add_clause(lits[:-1], wcnf.TOP_WEIGHT)'''
+    else:
+        stop = True
+
+    while stop:
+        print(all_solutions)
+        formula.add_clause(negate(model), wcnf.TOP_WEIGHT)
+        opt, model = solver.solve(formula)
+
+        if opt >= 0 and maxOpt >= opt:
+            solution = [x for x in range(1, self.n_nodes + 1) if model[x - 1] > 0]
+            all_solutions.append(solution)
+        else:
+            stop = True
+    '''
