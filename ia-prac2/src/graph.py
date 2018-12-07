@@ -241,10 +241,7 @@ def compute_all_solutions(self, formula, solver, n_solutions):
 
     max_opt, model = solver.solve(formula)
     if max_opt >= 0:
-        solution = [x for x in range(1, self.n_nodes + 1) if model[x - 1] > 0]
-        all_solutions.append(solution)
-        new_clause = negate(solution)
-        formula.add_clause(new_clause, wcnf.TOP_WEIGHT)
+        all_solutions = compute(self, formula, all_solutions, model)
         i += 1
     else:
         do = False
@@ -252,13 +249,19 @@ def compute_all_solutions(self, formula, solver, n_solutions):
     while (i < n_solutions or n_solutions == 0 or n_solutions == -1) and do:
         opt, model = solver.solve(formula)
         if opt == max_opt:
-            solution = [x for x in range(1, self.n_nodes + 1) if model[x - 1] > 0]
-            all_solutions.append(solution)
-            new_clause = negate(solution)
-            formula.add_clause(new_clause, wcnf.TOP_WEIGHT)
+            all_solutions = compute(self, formula, all_solutions, model)
             i += 1
         else:
             do = False
+    return all_solutions
+
+
+def compute(self, formula, all_solutions, model):
+    solution = [x for x in range(1, self.n_nodes + 1) if model[x - 1] > 0]
+    all_solutions.append(solution)
+    new_clause = negate(solution)
+    formula.add_clause(new_clause, wcnf.TOP_WEIGHT)
+
     return all_solutions
 
 
