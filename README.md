@@ -12,18 +12,19 @@ Exercici 1 :  COMPLETED
 
 Exercici 2 :  COMPLETED
 
-Exercici 3 :  IN PROGRESS
+Exercici 3 :  COMPLETED
 
-Ampliació :   IN PROGRESS
+Ampliació :   COMPLETED
     
-    - 1-3 TODO
-    - Multiple answers COMPLETED, NEEDS REFACTORING
+    - 1-3 COMPLETED, not TESTED
+    - Multiple answers COMPLETED
 
-Informe :     IN PROGRESS
+Informe :     COMPLETED
   
-    - Redacció document           TODO
+    - Redacció document           DONE
     - Modelització matemàtica EX1 DONE
     - Modelització matemàtica EX2 DONE
     - Modelització matemàtica EX3 TODO
-    - Provar diferents satSolvers TODO
-    - Generador grafs             IN PROGRESS
+    - Provar diferents satSolvers TODO -> provat LMHS
+    - Generador grafs             DROPPED
+    -Generar grafs manualment     DONE
