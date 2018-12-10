@@ -119,7 +119,33 @@ class WCNFFormula(object):
         """Generates a new formula that is the 1,3-WPM equivalent
         of this one."""
         formula13 = WCNFFormula()
-        raise NotImplementedError("Your code here")
+        formula13.num_vars = self.num_vars
+
+        # modify soft clausules first, as we might generate
+        # hard clausules longer than 3
+        for i in range(len(self.soft)):
+            var = formula13.new_var()
+            formula13.add_clause([-var], self.soft[i][0])
+            formula13.hard.append([self.soft[i][1], var])
+
+        # modify hard clausules
+        hard_noves = []
+        afegits = []
+        for i in range(len(self.hard)):
+            if len(self.hard[i]) > 3:
+                afegir = self.hard[i][:2]
+                var_nova = formula13.new_var()
+                afegir.append(var_nova)
+                afegits.append(afegir)
+                # recursive function that strips the given clausule and
+                # till it is everything of length 3 or less
+                afegits = strip_clausules(formula13, self.hard[i][2:], var_nova, afegits)
+                hard_noves.append(elem for elem in afegits)
+            else:
+                hard_noves.append(self.hard[i])
+
+            formula13.add_clauses(hard_noves, TOP_WEIGHT)
+
         return formula13
 
     def sum_soft_weights(self):
@@ -182,6 +208,29 @@ class WCNFFormula(object):
         stream.close()
         return output
 
+
+# Utils
+################################################################################
+def strip_clausules(formula, clausula, variable, afegits):
+    """
+    Auxiliar function that strips a given clausule in length 3 clausules
+    :param formula: the formula in which we need to increase the variables
+    :param clausula: the clausule to compute
+    :param variable: las variable added
+    :param afegits: partial result
+    :return: formated clausule
+    """
+    if len(clausula) <= 2:
+        afegir = [-variable]
+        afegir.append(clausula)
+        return afegits.append(afegir)
+    else:
+        afegir = [-variable]
+        afegir.append(clausula[0])
+        var_nova = formula.new_var()
+        afegir.append(var_nova)
+        afegits.append(afegir)
+        return strip_clausules(formula, clausula[1:], var_nova, afegits)
 
 # Module functions
 ################################################################################

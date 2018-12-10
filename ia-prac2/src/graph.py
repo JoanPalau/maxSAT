@@ -106,9 +106,9 @@ class Graph(object):
         for n1, n2 in self.edges:
             v1, v2 = n_vars[n1 - 1], n_vars[n2 - 1]
 
-            neighbours = add_neighbour(self, neighbours, v1, v2)
+            neighbours = add_neighbour(neighbours, v1, v2)
 
-            neighbours = add_neighbour(self, neighbours, v2, v1)
+            neighbours = add_neighbour(neighbours, v2, v1)
 
             # hard: each vertex needs to either be in the DSet
             # or have at least one of their neighbours in the DSet
@@ -117,7 +117,7 @@ class Graph(object):
                 literals = neighbours[key]
                 formula.add_at_least_one(literals)  # [:-1]
 
-        return compute_all_solutions(self, formula, solver, n_solutions)
+        return compute_all_solutions(self, formula, solver, n_solutions, basic_compute)
 
     def max_independent_set(self, solver, n_solutions):
         """Computes the maximum independent set of the graph.
@@ -140,7 +140,7 @@ class Graph(object):
             v1, v2 = n_vars[n1 - 1], n_vars[n2 - 1]
             formula.add_clause([-v1, -v2], wcnf.TOP_WEIGHT)
 
-        return compute_all_solutions(self, formula, solver, n_solutions)
+        return compute_all_solutions(self, formula, solver, n_solutions, basic_compute)
 
     def min_graph_coloring(self, solver, n_solutions):
         """Computes the sets of nodes that can be painted using the
@@ -166,19 +166,53 @@ class Graph(object):
         for n1, n2 in self.edges:
             v1, v2 = nodes[n1 - 1], nodes[n2 - 1]
 
-            neighbours = add_neighbour(self, neighbours, v1, v2)
+            neighbours = add_neighbour(neighbours, v1, v2)
 
-            neighbours = add_neighbour(self, neighbours, v2, v1)
+            neighbours = add_neighbour(neighbours, v2, v1)
 
         max_connectivity = 0
 
         for node in neighbours:
             max_connectivity = max(max_connectivity, len(neighbours.get(node)))
 
-        print(max_connectivity)
-        print(neighbours)
-        return print(nodes)
+        vars_to_parent = {}
 
+        matrix = []
+        for node in nodes:
+            row = [formula.new_var() for _ in range(max_connectivity)]
+            matrix.append(row)
+            for elem in row:
+                vars_to_parent[elem] = node
+
+        colors = []
+        for _ in range(max_connectivity):
+            colors.append(formula.new_var())
+
+        # soft: using one colour has a cost of 1
+        for color in colors:
+            formula.add_clause([-color], 1)
+
+        # hard: each variable has a colour associated,
+        # but different variables represent the same colour
+        for i in range(len(matrix[0])):
+            for row in range(len(neighbours)):
+                relation = [-matrix[row][i], colors[i]]
+                formula.add_clause(relation, wcnf.TOP_WEIGHT)
+
+        # hard: each node has to be painted in one colour only and exactly one colour
+        for row in matrix:
+            formula.add_exactly_one(row)
+
+        # hard: only one neighbour or the node can have the same colour
+        for node in neighbours:
+            veins = neighbours[node]
+            for vei in veins[1:]:
+                for i in range(len(matrix[0])):
+                    restriction = [matrix[veins[0]-1][i], matrix[vei-1][i]]
+                    formula.add_at_most_one(restriction)
+
+        return compute_all_solutions(self, formula, solver, n_solutions,
+                                     advanced_compute, vars_to_parent, nodes, colors)
 
 
 # Program main
@@ -197,8 +231,8 @@ def main(argv=None):
     mis_all = graph.max_independent_set(solver, args.n_solutions)
     assert all(len(mis_all[0]) == len(x) for x in mis_all)
 
-    #mgc_all = graph.min_graph_coloring(solver, args.n_solutions)
-    #assert all(len(mgc_all[0]) == len(x) for x in mgc_all)
+    mgc_all = graph.min_graph_coloring(solver, args.n_solutions)
+    assert all(len(mgc_all[0]) == len(x) for x in mgc_all)
 
     print("INDEPENDENT DOMINATION NUMBER", len(mds_all[0]))
     for mds in mds_all:
@@ -208,10 +242,10 @@ def main(argv=None):
     for mis in mis_all:
         print("MIS", " ".join(map(str, mis)))
 
-    #print("CHROMATIC INDEX", len(mgc_all[0]))
-    #for mgc in mgc_all:
-        #nodes = (" ".join(map(str, x)) for x in mgc)
-        #print("GC", " | ".join(nodes))
+    print("CHROMATIC INDEX", len(mgc_all[0]))
+    for mgc in mgc_all:
+        nodes = (" ".join(map(str, x)) for x in mgc)
+        print("GC", " | ".join(nodes))
 
 
 # Utilities
@@ -233,32 +267,83 @@ def parse_command_line_arguments(argv=None):
     return parser.parse_args(args=argv)
 
 
-def compute_all_solutions(self, formula, solver, n_solutions):
-    # this is just an example, only one solution is computed
+def basic_compute(self, formula, model, vars_to_parent, nodes, colors):
+    """
+    Computes the min dominating set and max independent set problems solutions
+    :param self:
+    :param formula:
+    :param model:
+    :param vars_to_parent:
+    :param nodes:
+    :param colors:
+    :return:
+    """
+    solution = [x for x in range(1, self.n_nodes + 1) if model[x - 1] > 0]
+    new_clause = negate(solution)
+    formula.add_clause(new_clause, wcnf.TOP_WEIGHT)
+    return solution
+
+
+def advanced_compute(self, formula, model, vars_to_parent, nodes, colors):
+    """
+    Computes the graph coloring problem solution
+    :param self:
+    :param formula:
+    :param model:
+    :param vars_to_parent: dict that maps a var to a node
+    :param nodes: list of nodes
+    :param colors: list of colours
+    :return: returns one solution
+    """
+
+    # compute all solutions or one solution
+    solution = []
+    vertexcolor = [[] for _ in range(len(colors))]
+
+    for x in range(0, len(nodes) * len(colors)):
+        if model[x] > 0:
+            col = model[x] % len(colors)
+            node = vars_to_parent[model[x]]
+            vertexcolor[col].append(node)
+
+    for listVertex in vertexcolor:
+        if len(listVertex) > 0:
+            solution.append(listVertex)
+    new_clause = negate(model)
+    formula.add_clause(new_clause, wcnf.TOP_WEIGHT)
+    return solution
+
+
+def compute_all_solutions(self, formula, solver, n_solutions, compute=basic_compute, vars_to_parent=None, nodes=None, colors=None):
+    """
+    Abstract layer that processes different computes for different number of solutions
+    :param self:
+    :param formula:
+    :param solver:
+    :param n_solutions:
+    :param compute: function that has to compute the solution
+    :param vars_to_parent:
+    :param nodes:
+    :param colors:
+    :return: all solutions requested
+    """
     i = 0
-    do = True
+    max_opt = 0
     all_solutions = []
+    if n_solutions <= 0:
+        n_solutions = sys.maxsize
 
-    max_opt, model = solver.solve(formula)
-    if max_opt >= 0:
-        solution = [x for x in range(1, self.n_nodes + 1) if model[x - 1] > 0]
-        all_solutions.append(solution)
-        new_clause = negate(solution)
-        formula.add_clause(new_clause, wcnf.TOP_WEIGHT)
-        i += 1
-    else:
-        do = False
-
-    while (i < n_solutions or n_solutions == 0 or n_solutions == -1) and do:
+    while i < n_solutions:
         opt, model = solver.solve(formula)
+        if i == 0 and opt >= 0:
+            max_opt = opt
         if opt == max_opt:
-            solution = [x for x in range(1, self.n_nodes + 1) if model[x - 1] > 0]
-            all_solutions.append(solution)
-            new_clause = negate(solution)
-            formula.add_clause(new_clause, wcnf.TOP_WEIGHT)
-            i += 1
+            solution = compute(self, formula, model, vars_to_parent, nodes, colors)
+            if solution not in all_solutions:
+                all_solutions.append(solution)
+                i += 1
         else:
-            do = False
+            break
     return all_solutions
 
 
@@ -268,14 +353,12 @@ def negate(formula):
     :param formula: list of literals
     :return: the list of literals negated
     """
-    res = []
-    for i in range(len(formula)):
-        res.append(-formula[i])
+    res = [-elem for elem in formula]
 
     return res
 
 
-def add_neighbour(self, neighbours, node, new):
+def add_neighbour(neighbours, node, new):
     """Adds a neighbour to the node list of neighbours + himself
 
     :param neighbours: dictionary of node, neighbours
@@ -294,27 +377,3 @@ def add_neighbour(self, neighbours, node, new):
 
 if __name__ == "__main__":
     sys.exit(main())
-
-# Intents fallits
-######################################
-
-    '''
-    if n_solutions == 0 or n_solutions == -1:
-        stop = False
-    else:
-        stop = True
-
-    else:
-        stop = True
-
-    while stop:
-        print(all_solutions)
-        formula.add_clause(negate(model), wcnf.TOP_WEIGHT)
-        opt, model = solver.solve(formula)
-
-        if opt >= 0 and maxOpt >= opt:
-            solution = [x for x in range(1, self.n_nodes + 1) if model[x - 1] > 0]
-            all_solutions.append(solution)
-        else:
-            stop = True
-    '''
